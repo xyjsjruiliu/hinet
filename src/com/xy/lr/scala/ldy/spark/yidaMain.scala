@@ -146,7 +146,7 @@ object yidaMain {
     val EdgeRDD : RDD[Edge[String]] = getEdgeRDD(sparkContext, filePath)
 
     //the graph
-    val graph : Graph[first, String] = Graph(VertexRDD, EdgeRDD)
+    val graph : Graph[String, String] = Graph(VertexRDD, EdgeRDD)
 
     graph.vertices.map( x => {
       println(x._2)
