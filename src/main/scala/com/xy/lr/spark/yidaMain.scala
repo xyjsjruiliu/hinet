@@ -12,6 +12,17 @@ import org.apache.spark.rdd.RDD
  */
 object yidaMain {
 
+  def getLastIterationFile(sparkContext : SparkContext, lastIteration : String, graph : Graph[String, String]
+                            ) : Graph[(Double, String), String] = {
+    val rdd : RDD[(Long, Double)] = sparkContext.textFile(lastIteration)
+      .map( x => x.substring(0, x.length-1)).map( x => (x.split(",")(0).toLong, x.split(",")(1).toDouble))
+
+    val newGraph = graph.mapVertices( (id, attr) => (1.0, attr))
+    val result : Graph[(Double, String), String] = newGraph.outerJoinVertices(rdd)( (vid, data, op) => {
+      (op.get, data._2)
+    })
+    result
+  }
   //make eachVertexRDD
   def getEachVertexRDDFromFile(sparkContext : SparkContext,
                                filePath : String, vertexName : String, addend : Long
@@ -150,7 +161,7 @@ object yidaMain {
     val sparkContext = new SparkContext(sparkConf)
 
     //hdfs file path of vertex
-    val filePath : String = args(0)
+    val filePath : String = "hdfs://hadoop-server:9000/user/hadoop/"
 
     val VertexRDD : RDD[(VertexId, String)] = getVertexRDD(sparkContext, filePath)
     val EdgeRDD : RDD[Edge[String]] = getEdgeRDD(sparkContext, filePath)
@@ -159,7 +170,12 @@ object yidaMain {
     val graph : Graph[String, String] = Graph(VertexRDD, EdgeRDD)
     //    graph.cache()
 
-    MyHits.run(graph, args(2).toInt, args(1))
+    if(args(2).toInt == 1){
+      MyHits.run(graph, args(1), "1")
+    }else{
+      MyHits.run(getLastIterationFile(sparkContext, args(0), graph), args(1))
+    }
+
     //    graph.vertices.map( x => {
     //      println(x._2)
     //    })
