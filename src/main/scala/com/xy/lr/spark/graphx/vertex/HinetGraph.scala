@@ -1,21 +1,26 @@
-package com.xy.lr.spark
+package com.xy.lr.spark.graphx.vertex
 
-import com.xy.lr.spark.graphx.MyHits
-import org.apache.spark.graphx.Graph
-import org.apache.spark.{SparkConf, SparkContext}
-import org.apache.spark.graphx.Edge
+import org.apache.spark.SparkContext
 import org.apache.spark.graphx._
 import org.apache.spark.rdd.RDD
 
 /**
- * Created by xylr on 15-5-27.
+ * Created by xylr on 15-5-29.
+ * Hinet graph
  */
-object yidaMain {
+class HinetGraph {
+
+  private var sourcePath : String = _
+
+  def this(sourcePath : String){
+    this()
+    this.sourcePath = sourcePath
+  }
 
   def getLastIterationFile(sparkContext : SparkContext, lastIteration : String, graph : Graph[String, String]
                             ) : Graph[(Double, String), String] = {
     val rdd : RDD[(Long, Double)] = sparkContext.textFile(lastIteration)
-      .map( x => x.substring(1, x.length-1)).map( x => (x.split(",")(0).toLong, x.split(",")(1).toDouble))
+      .map( x => x.substring(0, x.length-1)).map( x => (x.split(",")(0).toLong, x.split(",")(1).toDouble))
 
     val newGraph = graph.mapVertices( (id, attr) => (1.0, attr))
     val result : Graph[(Double, String), String] = newGraph.outerJoinVertices(rdd)( (vid, data, op) => {
@@ -27,47 +32,24 @@ object yidaMain {
   def getEachVertexRDDFromFile(sparkContext : SparkContext,
                                filePath : String, vertexName : String, addend : Long
                                 ) : RDD[(VertexId, String)] = {
-    if(filePath(filePath.length - 1) == '/'){
-      val vertexRDD : RDD[(VertexId, String)] = sparkContext.textFile(filePath + vertexName).map(
-        x => {
-          //vertexId
-          val index = x.split("\t")(0).toLong + addend
-          (index, x)
-        })
-      vertexRDD
-    }else{
-      val vertexRDD : RDD[(VertexId, String)] = sparkContext.textFile(filePath + "/" + vertexName).map(
-        x => {
-          //vertexId
-          val index = x.split("\t")(0).toLong + addend
-          (index, x)
-        })
-      vertexRDD
-    }
-
+    val vertexRDD : RDD[(VertexId, String)] = sparkContext.textFile(filePath + vertexName).map(
+      x => {
+        //vertexId
+        val index = x.split("\t")(0).toLong + addend
+        (index, x)
+      })
+    vertexRDD
   }
 
   def getAuthorVertexRDD(sparkContext : SparkContext,
                          filePath : String, vertexName : String, addend : Long) : RDD[(VertexId, String)] = {
-    if(filePath(filePath.length - 1) == '/'){
-      val vertexRDD : RDD[(VertexId, String)] = sparkContext.textFile(filePath + vertexName).map(
-        x => {
-          //vertexId
-          val index = x.split("\t")(0).toLong + addend
-          (index, x)
-        })
-      vertexRDD
-    }
-    else{
-      val vertexRDD : RDD[(VertexId, String)] = sparkContext.textFile(filePath + "/" + vertexName).map(
-        x => {
-          //vertexId
-          val index = x.split("\t")(0).toLong + addend
-          (index, x)
-        })
-      vertexRDD
-    }
-
+    val vertexRDD : RDD[(VertexId, String)] = sparkContext.textFile(filePath + vertexName).map(
+      x => {
+        //vertexId
+        val index = x.split("\t")(0).toLong + addend
+        (index, x)
+      })
+    vertexRDD
   }
 
   //make VertexRDD
@@ -116,7 +98,7 @@ object yidaMain {
         //property
         @transient var fea = ""
         if(property.equals("NULL")){
-          fea = "1"
+          fea = "null"
         }
         else{
           fea = x.split("\t")(3)
@@ -164,43 +146,5 @@ object yidaMain {
       .union(workReverseEdgeRDD).union(wroteReverseEdgeRDD)
     //return
     unionEdgeRDD
-  }
-
-  //main function
-  def main(args : Array[String]) : Unit = {
-    if(args.length != 3){
-      println("Usage : spark-submit " +
-        "--master spark://localhost:7077 " +
-        "--class com.xy.lr.scala.ldy.spark.yidaMain " +
-        "hdfs://hadoop-server:9000/user/hadoop/ " +
-        "hdfs://hadoop-server:9000/hi_index 1")
-      System.exit(0)
-    }
-    //conf
-    val sparkConf = new SparkConf()
-      .setMaster("spark://hadoop-server:7077")
-      .setAppName("lindayi")
-    //context
-    val sparkContext = new SparkContext(sparkConf)
-
-    //hdfs file path of vertex
-    val filePath : String = "hdfs://hadoop-server:9000/user/hadoop/"
-
-    val VertexRDD : RDD[(VertexId, String)] = getVertexRDD(sparkContext, filePath)
-    val EdgeRDD : RDD[Edge[String]] = getEdgeRDD(sparkContext, filePath)
-
-    //the graph
-    val graph : Graph[String, String] = Graph(VertexRDD, EdgeRDD)
-    graph.cache()
-
-    if(args(2).toInt == 1){
-      MyHits.run(sparkContext, "", graph, args(1), "1")
-    }else{
-      MyHits.run(sparkContext, args(0), graph, args(1), "2")
-    }
-
-    //    graph.vertices.map( x => {
-    //      println(x._2)
-    //    })
   }
 }
